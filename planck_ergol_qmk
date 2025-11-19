@@ -1,0 +1,456 @@
+// keyboards/planck/rev7/keymaps/ee_nuke/keymap.c
+#include QMK_KEYBOARD_H
+#include "eeconfig.h"
+#include "secrets.h"
+#include "sendstring_fr_ch.h"
+#include "wait.h"
+
+
+
+// -------- Dead keys (ISO-CH romand) as CALL-MACROS --------
+#define TAP_DEAD_CIRC()   tap_code(KC_EQL)        // ^ (dead)
+#define TAP_DEAD_GRAVE()  tap_code16(S(KC_EQL))   // ` (dead)
+#define TAP_DEAD_DIER()   tap_code(KC_RBRC)       // ¨ (dead)
+#define TAP_DEAD_ACUT()   tap_code16(RALT(KC_MINS))
+
+// Optionnel : définis TAP_DEAD_ACUT() dans config.h si ton OS a une touche morte ´ facile.
+// Exemples possibles selon OS :
+//   #define TAP_DEAD_ACUT() tap_code16(RALT(KC_EQL))   // (ex: AltGr + ^) à adapter si besoin
+//   #define TAP_DEAD_ACUT() tap_code(KC_SCLN)          // SI (et seulement si) cette touche est une *vraie* dead-´ chez toi
+
+// --- Helpers d'envoi ---
+#ifdef UNICODE_ENABLE
+static inline void send_uc_hex(uint32_t hex) {
+    unicode_input_start();
+    register_hex(hex);
+    unicode_input_finish();
+}
+#else
+static inline void send_uc_hex(uint32_t hex) { (void)hex; }
+#endif
+
+static inline void send_text(const char *s) { send_string_fr_ch(s); }
+
+#ifdef UNICODE_ENABLE
+void keyboard_post_init_user(void) { set_unicode_input_mode(UNICODE_MODE_WINDOWS); }
+void eeconfig_init_user(void)      { set_unicode_input_mode(UNICODE_MODE_WINDOWS); }
+#else
+void keyboard_post_init_user(void) {}
+void eeconfig_init_user(void) {}
+#endif
+
+// ---------- Layers ----------
+enum layers { _0, _1, _2, _3 };
+
+// ---------- Custom keycodes ----------
+enum custom_keycodes {
+    // minuscules conservées
+    A_CIRC = SAFE_RANGE, O_CIRC, E_CIRC, E_DIER, U_GRAV, AE_LIG, OE_LIG, I_CIRC, I_DIER, U_CIRC,
+    // majuscules conservées
+    A_CIRC_CAPS, C_CED_U, O_CIRC_CAPS, OE_CAPS, A_GRAV_CAPS, E_ACUT, E_GRAV, E_CIRC_CAPS, AE_CAPS, I_CIRC_CAPS, I_DIER_CAPS,
+    // macros texte conservées
+    MAILPRO, MDP, ENTER_TAB_ENTER, HASHTAGRUBYEDITOR
+};
+
+// ---------- One-shot layer util ----------
+static uint8_t oneshot_layer_pending = 0;
+static bool is_modifier_key(uint16_t kc) {
+    switch (kc) {
+        case KC_LCTL: case KC_LSFT: case KC_LALT: case KC_LGUI:
+        case KC_RCTL: case KC_RSFT: case KC_RALT: case KC_RGUI:
+            return true;
+        default:
+            return (kc >= QK_MOD_TAP && kc <= QK_MOD_TAP_MAX);
+    }
+}
+void post_process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (oneshot_layer_pending && !record->event.pressed && !is_modifier_key(keycode)) {
+        layer_off(oneshot_layer_pending);
+        oneshot_layer_pending = 0;
+    }
+}
+
+// ---------- Keymaps (Planck 4x12) ----------
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+/* _0 Base  (inversions gardées comme tu l’avais) */
+[_0] = LAYOUT_planck_grid(
+    KC_Q,    KC_C,    KC_O,    KC_P,    KC_W,    KC_NO, KC_NO, KC_J,    KC_M,    KC_D,    KC_COMM, KC_Z,
+    KC_A,    KC_S,    KC_E,    KC_N,    KC_F,    KC_NO, KC_NO, KC_L,    KC_R,    KC_T,    KC_I,    KC_U,
+    KC_LCTL, KC_X, KC_Y,   KC_V,    KC_B,  KC_NO, KC_NO,   KC_K,    KC_H,    KC_G,    KC_DOT,  KC_LGUI,
+    KC_NO,  KC_NO,   KC_NO,   KC_NO,   LT(_2, KC_TAB), LT(_1,KC_BSPC), LT(_3,KC_ENT),   LSFT_T(KC_SPC), KC_NO, KC_NO, KC_NO, KC_NO
+),
+
+/* _1 Nav/Souris — déplacements & molette */
+[_1] = LAYOUT_planck_grid(
+    KC_WH_L, KC_WH_U, KC_MS_U, KC_WH_D, KC_WH_R, KC_NO, KC_NO, KC_INS,  KC_HOME, KC_UP,   KC_END, KC_F4,
+    KC_BTN2, KC_MS_L, KC_MS_D, KC_MS_R, KC_BTN1, KC_NO, KC_NO, KC_F11,  KC_LEFT, KC_DOWN, KC_RGHT, KC_F2,
+    KC_TRNS, KC_DEL, KC_BSPC, C(S(KC_5)), ENTER_TAB_ENTER, KC_NO, KC_NO, KC_TAB, KC_PGUP, KC_F10, KC_PGDN, KC_TRNS,
+    KC_NO, KC_NO, KC_NO, KC_NO, KC_TRNS, KC_TRNS, KC_LALT, KC_TRNS, KC_NO, KC_NO, KC_NO, KC_NO
+),
+
+/* _2 Numpad/Symb */
+[_2] = LAYOUT_planck_grid(
+    KC_NUHS,  KC_NUBS, S(KC_NUBS), S(KC_0), S(KC_6), KC_NO, KC_NO, KC_SLSH, KC_7, KC_8, KC_9, S(KC_7),
+	RALT(KC_QUOT), S(KC_8), S(KC_9), RALT(KC_NUHS), KC_DOT, KC_NO, KC_NO, S(KC_1), KC_4, KC_5, KC_6, KC_0,
+    RALT(KC_EQL),  RALT(KC_LBRC), RALT(KC_RBRC), RALT(KC_3), HASHTAGRUBYEDITOR, KC_NO, KC_NO, S(KC_3), KC_1, KC_2, KC_3, KC_COMM,
+    KC_NO, KC_NO, KC_NO, KC_NO, KC_TRNS, KC_TRNS, S(KC_ENT), KC_TRNS, KC_NO, KC_NO, KC_NO, KC_NO
+),
+
+/* _3 F-keys / systèmes */
+[_3] = LAYOUT_planck_grid(
+    KC_F9, KC_F10, KC_F11, KC_F12, KC_NUM, KC_NO, KC_NO, KC_CALC, KC_MYCM,  MAILPRO,  MDP,  QK_COMBO_TOGGLE,
+    KC_F1, KC_F2,  KC_F3,  KC_F4,  C(A(KC_DEL)),KC_NO, KC_NO, KC_BRID, KC_VOLD, KC_MUTE, KC_VOLU, KC_BRIU,
+    KC_F5, KC_F6,  KC_F7,  KC_F8,  KC_CAPS,KC_NO, KC_NO, KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO,
+    KC_NO, KC_NO,  KC_NO,  KC_NO, KC_LALT, KC_DEL, KC_TRNS, KC_TRNS,  KC_NO,  KC_NO,  KC_NO,  KC_NO
+),
+};
+
+// =====================================================
+// Helpers pour Alt+Numpad (Windows)
+// =====================================================
+static void tap_kp_digit(uint8_t d) {
+    switch (d) {
+        case 0: tap_code(KC_KP_0); break;
+        case 1: tap_code(KC_KP_1); break;
+        case 2: tap_code(KC_KP_2); break;
+        case 3: tap_code(KC_KP_3); break;
+        case 4: tap_code(KC_KP_4); break;
+        case 5: tap_code(KC_KP_5); break;
+        case 6: tap_code(KC_KP_6); break;
+        case 7: tap_code(KC_KP_7); break;
+        case 8: tap_code(KC_KP_8); break;
+        case 9: tap_code(KC_KP_9); break;
+    }
+}
+static void send_alt_code4(uint16_t code) {
+    register_code(KC_LALT);
+    tap_kp_digit((code / 1000) % 10);
+    tap_kp_digit((code / 100)  % 10);
+    tap_kp_digit((code / 10)   % 10);
+    tap_kp_digit(code % 10);
+    unregister_code(KC_LALT);
+}
+
+// ---------- Combos ----------
+#ifdef COMBO_ENABLE
+enum combo_events {
+    // , + lettre
+    CB_COMMA_Q_MIDDOT, CB_COMMA_C_UNDERSCORE, CB_COMMA_O_EQUAL, CB_COMMA_P_PERCENT, CB_COMMA_W_PERMILLE,
+    CB_COMMA_A_AT, CB_COMMA_S_MINUS, CB_COMMA_E_APOS, CB_COMMA_N_DQUOTE, CB_COMMA_F_EURO,
+    CB_COMMA_X_GUIL_L, CB_COMMA_Z_GUIL_R, CB_COMMA_V_EMDASH, CB_COMMA_B_NBSP, CB_COMMA_J_PLUS,
+    CB_COMMA_M_PLUS, CB_COMMA_D_I_CIRC, CB_COMMA_Y_U_CIRC, CB_COMMA_L_CURRENCY, CB_COMMA_R_AMP,
+    CB_COMMA_T_SLASH, CB_COMMA_U_U_GRAV, CB_COMMA_H_PLUS,
+
+    // t + i + lettre
+    CB_TI_Q_A_CIRC, CB_TI_C_C_CED, CB_TI_O_O_CIRC, CB_TI_P_O_DIER, CB_TI_W_OE,
+    CB_TI_A_A_GRAV, CB_TI_S_E_ACUT, CB_TI_E_E_GRAV, CB_TI_N_E_CIRC, CB_TI_F_E_DIER,
+    CB_TI_X_A_DIER, CB_TI_Z_AE, CB_TI_V_SHARP_S, CB_TI_B_N_TILD, CB_TI_U_U_GRAV2,
+
+    // autres
+    CB_X_Y_ESC, CB_Z_V_OSM_LALT, CB_DOT_G_EXCL, CB_DOT_H_QMARK, CB_LEFT_RIGHT_PSCR, CB_LEFT_DOWN_RIGHT_F21, CB_D_Y_I_DIER,
+
+    // . + lettre
+    CB_DOT_Q_A_CIRC_CAPS, CB_DOT_C_CED_U, CB_DOT_O_O_CIRC_CAPS, CB_DOT_W_OE_CAPS,
+    CB_DOT_A_A_GRAV_CAPS, CB_DOT_S_E_ACUT_CAPS, CB_DOT_E_E_GRAV_CAPS, CB_DOT_N_E_CIRC_CAPS,
+    CB_DOT_F_AE_CAPS, CB_DOT_T_I_CIRC_CAPS, CB_DOT_U_I_DIER_CAPS,
+    CB_DOT_X_RALT_MINS, CB_DOT_Z_SHIFT_EQL, CB_DOT_V_RBRC, CB_DOT_B_EQL, CB_DOT_Y_SHIFT_EQL,
+    CB_DOT_0_EMPTY, CB_DOT_K_I_CIRC_CAPS,
+
+    // *** nouveaux ***
+    CB_D_I_RALT_NUBS,       // d + i  -> AltGr+NUBS
+    CB_DOT_P_O_DIER_CAPS,   // . + P  -> Ö (dead ¨ + Shift-O)
+};
+
+// --- définitions des touches des combos ---
+const uint16_t PROGMEM cb_comma_q[] = {KC_COMM, KC_Q, COMBO_END};
+const uint16_t PROGMEM cb_comma_c[] = {KC_COMM, KC_C, COMBO_END};
+const uint16_t PROGMEM cb_comma_o[] = {KC_COMM, KC_O, COMBO_END};
+const uint16_t PROGMEM cb_comma_p[] = {KC_COMM, KC_P, COMBO_END};
+const uint16_t PROGMEM cb_comma_w[] = {KC_COMM, KC_W, COMBO_END};
+const uint16_t PROGMEM cb_comma_a[] = {KC_COMM, KC_A, COMBO_END};
+const uint16_t PROGMEM cb_comma_s[] = {KC_COMM, KC_S, COMBO_END};
+const uint16_t PROGMEM cb_comma_e[] = {KC_COMM, KC_E, COMBO_END};
+const uint16_t PROGMEM cb_comma_n[] = {KC_COMM, KC_N, COMBO_END};
+const uint16_t PROGMEM cb_comma_f[] = {KC_COMM, KC_F, COMBO_END};
+const uint16_t PROGMEM cb_comma_x[] = {KC_COMM, KC_X, COMBO_END};
+const uint16_t PROGMEM cb_comma_y[] = {KC_COMM, KC_Z, COMBO_END}; // inversion Y/Z
+const uint16_t PROGMEM cb_comma_z[] = {KC_COMM, KC_Y, COMBO_END};
+const uint16_t PROGMEM cb_comma_v[] = {KC_COMM, KC_V, COMBO_END};
+const uint16_t PROGMEM cb_comma_b[] = {KC_COMM, KC_B, COMBO_END};
+const uint16_t PROGMEM cb_comma_j[] = {KC_COMM, KC_J, COMBO_END};
+const uint16_t PROGMEM cb_comma_m[] = {KC_COMM, KC_M, COMBO_END};
+const uint16_t PROGMEM cb_comma_d[] = {KC_COMM, KC_D, COMBO_END};
+const uint16_t PROGMEM cb_comma_l[] = {KC_COMM, KC_L, COMBO_END};
+const uint16_t PROGMEM cb_comma_r[] = {KC_COMM, KC_R, COMBO_END};
+const uint16_t PROGMEM cb_comma_t[] = {KC_COMM, KC_T, COMBO_END};
+const uint16_t PROGMEM cb_comma_u[] = {KC_COMM, KC_U, COMBO_END};
+const uint16_t PROGMEM cb_comma_h[] = {KC_COMM, KC_H, COMBO_END};
+
+// t + i + *
+const uint16_t PROGMEM cb_ti_q[] = {KC_T, KC_I, KC_Q, COMBO_END};
+const uint16_t PROGMEM cb_ti_c[] = {KC_T, KC_I, KC_C, COMBO_END};
+const uint16_t PROGMEM cb_ti_o[] = {KC_T, KC_I, KC_O, COMBO_END};
+const uint16_t PROGMEM cb_ti_p[] = {KC_T, KC_I, KC_P, COMBO_END};
+const uint16_t PROGMEM cb_ti_w[] = {KC_T, KC_I, KC_W, COMBO_END};
+const uint16_t PROGMEM cb_ti_a[] = {KC_T, KC_I, KC_A, COMBO_END};
+const uint16_t PROGMEM cb_ti_s[] = {KC_T, KC_I, KC_S, COMBO_END};
+const uint16_t PROGMEM cb_ti_e[] = {KC_T, KC_I, KC_E, COMBO_END};
+const uint16_t PROGMEM cb_ti_n[] = {KC_T, KC_I, KC_N, COMBO_END};
+const uint16_t PROGMEM cb_ti_f[] = {KC_T, KC_I, KC_F, COMBO_END};
+const uint16_t PROGMEM cb_ti_x[] = {KC_T, KC_I, KC_X, COMBO_END};
+const uint16_t PROGMEM cb_ti_z[] = {KC_T, KC_I, KC_Y, COMBO_END}; // inversion z→Y
+const uint16_t PROGMEM cb_ti_v[] = {KC_T, KC_I, KC_V, COMBO_END};
+const uint16_t PROGMEM cb_ti_b[] = {KC_T, KC_I, KC_B, COMBO_END};
+const uint16_t PROGMEM cb_ti_u[] = {KC_T, KC_I, KC_U, COMBO_END};
+
+// . + *
+const uint16_t PROGMEM cb_dot_0[] = {KC_DOT, KC_0, COMBO_END};
+const uint16_t PROGMEM cb_dot_k[] = {KC_DOT, KC_K, COMBO_END};
+
+// autres
+const uint16_t PROGMEM cb_x_y[]     = {KC_X, KC_Y, COMBO_END};
+const uint16_t PROGMEM cb_z_v[]     = {KC_Z, KC_V, COMBO_END};
+const uint16_t PROGMEM cb_dot_g[]   = {KC_DOT, KC_G, COMBO_END};
+const uint16_t PROGMEM cb_dot_h[]   = {KC_DOT, KC_H, COMBO_END};
+const uint16_t PROGMEM cb_lr_pair[] = {KC_LEFT, KC_RGHT, COMBO_END};
+const uint16_t PROGMEM cb_ldr[] = { KC_LEFT, KC_DOWN, KC_RGHT, COMBO_END };
+const uint16_t PROGMEM cb_d_y[]     = {KC_D, KC_Z, COMBO_END}; // d+y -> ï
+
+// . + lettre
+const uint16_t PROGMEM cb_dot_q[] = {KC_DOT, KC_Q, COMBO_END};
+const uint16_t PROGMEM cb_dot_c[] = {KC_DOT, KC_C, COMBO_END};
+const uint16_t PROGMEM cb_dot_o[] = {KC_DOT, KC_O, COMBO_END};
+const uint16_t PROGMEM cb_dot_w[] = {KC_DOT, KC_W, COMBO_END};
+const uint16_t PROGMEM cb_dot_a[] = {KC_DOT, KC_A, COMBO_END};
+const uint16_t PROGMEM cb_dot_s[] = {KC_DOT, KC_S, COMBO_END};
+const uint16_t PROGMEM cb_dot_e[] = {KC_DOT, KC_E, COMBO_END};
+const uint16_t PROGMEM cb_dot_n[] = {KC_DOT, KC_N, COMBO_END};
+const uint16_t PROGMEM cb_dot_f[] = {KC_DOT, KC_F, COMBO_END};
+const uint16_t PROGMEM cb_dot_t[] = {KC_DOT, KC_T, COMBO_END};
+const uint16_t PROGMEM cb_dot_u[] = {KC_DOT, KC_U, COMBO_END};
+const uint16_t PROGMEM cb_dot_x[] = {KC_DOT, KC_X, COMBO_END};
+const uint16_t PROGMEM cb_dot_z[] = {KC_DOT, KC_Z, COMBO_END};
+const uint16_t PROGMEM cb_dot_v[] = {KC_DOT, KC_V, COMBO_END};
+const uint16_t PROGMEM cb_dot_b[] = {KC_DOT, KC_B, COMBO_END};
+const uint16_t PROGMEM cb_dot_y[] = {KC_DOT, KC_Y, COMBO_END};
+// nouveau . + P
+const uint16_t PROGMEM cb_dot_p[] = {KC_DOT, KC_P, COMBO_END};
+
+// *** nouveau : d + i ***
+const uint16_t PROGMEM cb_d_i[]     = {KC_D, KC_I, COMBO_END};
+
+// tableau des combos
+combo_t key_combos[] = {
+    // , + lettre
+    [CB_COMMA_Q_MIDDOT]     = COMBO_ACTION(cb_comma_q),
+    [CB_COMMA_C_UNDERSCORE] = COMBO_ACTION(cb_comma_c),
+    [CB_COMMA_O_EQUAL]      = COMBO_ACTION(cb_comma_o),
+    [CB_COMMA_P_PERCENT]    = COMBO_ACTION(cb_comma_p),
+    [CB_COMMA_W_PERMILLE]   = COMBO_ACTION(cb_comma_w),
+    [CB_COMMA_A_AT]         = COMBO_ACTION(cb_comma_a),
+    [CB_COMMA_S_MINUS]      = COMBO_ACTION(cb_comma_s),
+    [CB_COMMA_E_APOS]       = COMBO_ACTION(cb_comma_e),
+    [CB_COMMA_N_DQUOTE]     = COMBO_ACTION(cb_comma_n),
+    [CB_COMMA_F_EURO]       = COMBO_ACTION(cb_comma_f),
+    [CB_COMMA_X_GUIL_L]     = COMBO_ACTION(cb_comma_x),
+    [CB_COMMA_Z_GUIL_R]     = COMBO_ACTION(cb_comma_z),
+    [CB_COMMA_V_EMDASH]     = COMBO_ACTION(cb_comma_v),
+    [CB_COMMA_B_NBSP]       = COMBO_ACTION(cb_comma_b),
+    [CB_COMMA_J_PLUS]        = COMBO_ACTION(cb_comma_j),
+    [CB_COMMA_M_PLUS]       = COMBO_ACTION(cb_comma_m),
+    [CB_COMMA_D_I_CIRC]     = COMBO_ACTION(cb_comma_d),
+    [CB_COMMA_Y_U_CIRC]     = COMBO_ACTION(cb_comma_y),
+    [CB_COMMA_L_CURRENCY]   = COMBO_ACTION(cb_comma_l),
+    [CB_COMMA_R_AMP]        = COMBO_ACTION(cb_comma_r),
+    [CB_COMMA_T_SLASH]      = COMBO_ACTION(cb_comma_t),
+    [CB_COMMA_U_U_GRAV]     = COMBO_ACTION(cb_comma_u),
+    [CB_COMMA_H_PLUS]       = COMBO_ACTION(cb_comma_h),
+
+    // t + i + lettre
+    [CB_TI_Q_A_CIRC]        = COMBO_ACTION(cb_ti_q),
+    [CB_TI_C_C_CED]         = COMBO_ACTION(cb_ti_c),
+    [CB_TI_O_O_CIRC]        = COMBO_ACTION(cb_ti_o),
+    [CB_TI_P_O_DIER]        = COMBO_ACTION(cb_ti_p),
+    [CB_TI_W_OE]            = COMBO_ACTION(cb_ti_w),
+    [CB_TI_A_A_GRAV]        = COMBO_ACTION(cb_ti_a),
+    [CB_TI_S_E_ACUT]        = COMBO_ACTION(cb_ti_s),
+    [CB_TI_E_E_GRAV]        = COMBO_ACTION(cb_ti_e),
+    [CB_TI_N_E_CIRC]        = COMBO_ACTION(cb_ti_n),
+    [CB_TI_F_E_DIER]        = COMBO_ACTION(cb_ti_f),
+    [CB_TI_X_A_DIER]        = COMBO_ACTION(cb_ti_x),
+    [CB_TI_Z_AE]            = COMBO_ACTION(cb_ti_z),
+    [CB_TI_V_SHARP_S]       = COMBO_ACTION(cb_ti_v),
+    [CB_TI_B_N_TILD]        = COMBO_ACTION(cb_ti_b),
+    [CB_TI_U_U_GRAV2]       = COMBO_ACTION(cb_ti_u),
+
+    // autres
+    [CB_X_Y_ESC]            = COMBO_ACTION(cb_x_y),
+    [CB_Z_V_OSM_LALT]       = COMBO_ACTION(cb_z_v),
+    [CB_DOT_G_EXCL]         = COMBO_ACTION(cb_dot_g),
+    [CB_DOT_H_QMARK]        = COMBO_ACTION(cb_dot_h),
+    [CB_LEFT_RIGHT_PSCR]    = COMBO_ACTION(cb_lr_pair),
+	[CB_LEFT_DOWN_RIGHT_F21] = COMBO_ACTION(cb_ldr),
+    [CB_D_Y_I_DIER]         = COMBO_ACTION(cb_d_y),
+
+    // . + lettre
+    [CB_DOT_Q_A_CIRC_CAPS]  = COMBO_ACTION(cb_dot_q),
+    [CB_DOT_C_CED_U]        = COMBO_ACTION(cb_dot_c),  
+    [CB_DOT_O_O_CIRC_CAPS]  = COMBO_ACTION(cb_dot_o),
+    [CB_DOT_W_OE_CAPS]      = COMBO_ACTION(cb_dot_w),  
+    [CB_DOT_A_A_GRAV_CAPS]  = COMBO_ACTION(cb_dot_a),
+    [CB_DOT_S_E_ACUT_CAPS]  = COMBO_ACTION(cb_dot_s),  
+    [CB_DOT_E_E_GRAV_CAPS]  = COMBO_ACTION(cb_dot_e),
+    [CB_DOT_N_E_CIRC_CAPS]  = COMBO_ACTION(cb_dot_n), 
+    [CB_DOT_F_AE_CAPS]      = COMBO_ACTION(cb_dot_f),  
+    [CB_DOT_T_I_CIRC_CAPS]  = COMBO_ACTION(cb_dot_t),
+    [CB_DOT_U_I_DIER_CAPS]  = COMBO_ACTION(cb_dot_u),
+    [CB_DOT_X_RALT_MINS]    = COMBO_ACTION(cb_dot_x),
+    [CB_DOT_Z_SHIFT_EQL]    = COMBO_ACTION(cb_dot_z),
+    [CB_DOT_V_RBRC]         = COMBO_ACTION(cb_dot_v),
+    [CB_DOT_B_EQL]          = COMBO_ACTION(cb_dot_b),
+    [CB_DOT_Y_SHIFT_EQL]    = COMBO_ACTION(cb_dot_y),
+    [CB_DOT_0_EMPTY]        = COMBO_ACTION(cb_dot_0),
+    [CB_DOT_K_I_CIRC_CAPS]  = COMBO_ACTION(cb_dot_k),
+    [CB_D_I_RALT_NUBS]      = COMBO_ACTION(cb_d_i),
+    [CB_DOT_P_O_DIER_CAPS]  = COMBO_ACTION(cb_dot_p),
+};
+
+uint16_t COMBO_LEN = sizeof(key_combos) / sizeof(key_combos[0]);
+
+void process_combo_event(uint16_t combo_index, bool pressed) {
+    if (!pressed) return;
+    switch (combo_index) {
+        // , + lettre
+        case CB_COMMA_Q_MIDDOT:    send_alt_code4(183); break;
+        case CB_COMMA_C_UNDERSCORE:tap_code16(S(KC_SLSH)); break;
+        case CB_COMMA_O_EQUAL:     tap_code16(S(KC_0)); break;
+        case CB_COMMA_P_PERCENT:   tap_code16(S(KC_5)); break;
+        case CB_COMMA_W_PERMILLE:  send_alt_code4(137); break;
+        case CB_COMMA_A_AT:        tap_code16(RALT(KC_2)); break;
+        case CB_COMMA_S_MINUS:     tap_code(KC_SLSH); break;
+        case CB_COMMA_E_APOS:      tap_code(KC_MINS); break;
+        case CB_COMMA_N_DQUOTE:    tap_code16(S(KC_2)); break;
+        case CB_COMMA_F_EURO:      send_alt_code4(128); break;
+        case CB_COMMA_B_NBSP:      send_alt_code4(160); break;
+        case CB_COMMA_V_EMDASH:    send_alt_code4(151); break;
+        case CB_COMMA_X_GUIL_L:    send_alt_code4(171); break;
+        case CB_COMMA_Z_GUIL_R:    send_alt_code4(187); break;
+        case CB_COMMA_J_PLUS:       tap_code16(S(KC_1)); break;
+        case CB_COMMA_M_PLUS:      TAP_DEAD_DIER(); tap_code(KC_I); break;
+        case CB_COMMA_D_I_CIRC:   TAP_DEAD_CIRC();  tap_code(KC_I); break;
+        case CB_COMMA_Y_U_CIRC:    TAP_DEAD_CIRC();  tap_code(KC_U); break;
+        case CB_COMMA_L_CURRENCY:  tap_code16(S(KC_GRV)); break;
+        case CB_COMMA_R_AMP:       tap_code16(S(KC_6)); break;
+        case CB_COMMA_T_SLASH:     tap_code16(S(KC_7)); break;
+        case CB_COMMA_U_U_GRAV:    TAP_DEAD_GRAVE();  tap_code(KC_U); break;
+        case CB_COMMA_H_PLUS:      tap_code16(KC_GRV); break;
+
+        // t + i + lettre
+        case CB_TI_Q_A_CIRC:       TAP_DEAD_CIRC();  tap_code(KC_A); break;
+        case CB_TI_C_C_CED:        tap_code16(S(KC_4)); break;
+        case CB_TI_O_O_CIRC:       TAP_DEAD_CIRC();  tap_code(KC_O); break;
+        case CB_TI_P_O_DIER:       tap_code16(S(KC_SCLN)); break;
+        case CB_TI_W_OE:           send_alt_code4(156); break;
+        case CB_TI_A_A_GRAV:       TAP_DEAD_GRAVE(); tap_code(KC_A); break;
+        case CB_TI_S_E_ACUT:       tap_code(KC_SCLN); break;
+        case CB_TI_E_E_GRAV:       tap_code(KC_LBRC); break;
+        case CB_TI_N_E_CIRC:       TAP_DEAD_CIRC();  tap_code(KC_E); break;
+        case CB_TI_F_E_DIER:       TAP_DEAD_DIER();  tap_code(KC_E); break;
+        case CB_TI_X_A_DIER:       tap_code16(S(KC_QUOT)); break;
+        case CB_TI_Z_AE:           send_alt_code4(230); break;
+        case CB_TI_V_SHARP_S:      send_alt_code4(223); break;
+        case CB_TI_B_N_TILD:       tap_code16(RALT(KC_EQL)); tap_code(KC_N); break;
+        case CB_TI_U_U_GRAV2:      TAP_DEAD_GRAVE(); tap_code(KC_U); break;
+
+        // autres
+        case CB_X_Y_ESC:           tap_code(KC_ESC); break;
+        case CB_Z_V_OSM_LALT:      set_oneshot_mods(MOD_LALT); break;
+        case CB_DOT_G_EXCL:        tap_code16(S(KC_RBRC)); break;
+        case CB_DOT_H_QMARK:       tap_code16(S(KC_MINS));  break;
+        case CB_LEFT_RIGHT_PSCR:   tap_code(KC_PSCR); break;
+		case CB_LEFT_DOWN_RIGHT_F21:   tap_code(KC_F21); break;
+        case CB_D_Y_I_DIER:        tap_code16(KC_GRV); break;
+
+        // . + lettre (dead keys prioritaire + correctifs demandés)
+        case CB_DOT_Q_A_CIRC_CAPS:  TAP_DEAD_CIRC();  tap_code16(S(KC_A)); break; // Â
+        case CB_DOT_O_O_CIRC_CAPS:  TAP_DEAD_CIRC();  tap_code16(S(KC_O)); break; // Ô
+        case CB_DOT_A_A_GRAV_CAPS:  TAP_DEAD_GRAVE(); tap_code16(S(KC_A)); break; // À
+        case CB_DOT_E_E_GRAV_CAPS:  TAP_DEAD_CIRC(); tap_code16(S(KC_E)); break; // È
+        case CB_DOT_T_I_CIRC_CAPS:  TAP_DEAD_GRAVE();  tap_code16(S(KC_I)); break; // 
+        case CB_DOT_U_I_DIER_CAPS:  TAP_DEAD_DIER();  tap_code16(S(KC_I)); break; // Ï
+		case CB_DOT_C_CED_U:        send_alt_code4(199);  break;   // Ç
+        case CB_DOT_S_E_ACUT_CAPS:	TAP_DEAD_ACUT();  tap_code16(S(KC_E)); break; // . + S → É via dead ´ + Shift-E
+        case CB_DOT_N_E_CIRC_CAPS:  TAP_DEAD_CIRC();  tap_code16(S(KC_E)); break; // . + N → Ê
+        case CB_DOT_F_AE_CAPS:      TAP_DEAD_DIER();  tap_code16(S(KC_E)); break; // . + F → Ë
+        case CB_DOT_W_OE_CAPS:      TAP_DEAD_CIRC();  tap_code16(S(KC_I)); break; // . + W → Î
+
+        // remap utilitaires
+        case CB_DOT_Y_SHIFT_EQL:    tap_code16(S(KC_EQL)); 	   break;
+		case CB_DOT_0_EMPTY:        send_alt_code4(248); break;   // ∅
+        case CB_DOT_K_I_CIRC_CAPS: TAP_DEAD_CIRC();  tap_code16(S(KC_I)); break; // Î
+        case CB_DOT_X_RALT_MINS:    tap_code16(RALT(KC_MINS)); break;
+        case CB_DOT_Z_SHIFT_EQL:    tap_code16(S(KC_EQL));     break;
+        case CB_DOT_V_RBRC:         tap_code(KC_EQL);          break;
+        case CB_DOT_B_EQL:          tap_code(KC_RBRC);         break;
+
+        // nouveaux
+        case CB_DOT_P_O_DIER_CAPS:  TAP_DEAD_DIER();  tap_code16(S(KC_O)); break; // . + P → Ö
+        case CB_D_I_RALT_NUBS:      tap_code16(RALT(KC_NUBS)); break;      // d + i
+    }
+}
+#endif  // COMBO_ENABLE
+
+// ---------- process_record_user ----------
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        switch (keycode) {
+            // Text / macros
+            case MDP:
+                combo_disable();
+                send_text(MDP_TXT);
+                combo_enable();
+                return false;
+            case MAILPRO:
+                combo_disable();
+                send_text(EMAIL_TXT);
+                combo_enable();
+                return false;
+            case ENTER_TAB_ENTER:
+                tap_code(KC_ENT); tap_code(KC_TAB); tap_code(KC_ENT); return false;
+case HASHTAGRUBYEDITOR:
+        tap_code16(RALT(KC_3));   // '#'
+    wait_ms(20);                  // laisse l'OS digérer le '#'
+    clear_oneshot_mods();
+    clear_mods();                 // s'assure qu'aucun Alt/Ctrl/Shift n'est tenu
+    tap_code(KC_DOWN);
+    tap_code(KC_HOME);
+    return false;
+
+            // minuscules (Unicode)
+            case A_CIRC:      send_uc_hex(0x00E2); return false;
+            case O_CIRC:      send_uc_hex(0x00F4); return false;
+            case E_CIRC:      send_uc_hex(0x00EA); return false;
+            case E_DIER:      send_uc_hex(0x00EB); return false;
+            case U_GRAV:      send_uc_hex(0x00F9); return false;
+            case AE_LIG:      send_uc_hex(0x00E6); return false;
+            case OE_LIG:      send_uc_hex(0x0153); return false;
+            case I_CIRC:      send_uc_hex(0x00EE); return false;
+            case I_DIER:      send_uc_hex(0x00EF); return false;
+            case U_CIRC:      send_uc_hex(0x00FB); return false;
+
+            // majuscules
+            case A_CIRC_CAPS: send_uc_hex(0x00C2); return false;
+            case C_CED_U:     send_uc_hex(0x00C7); return false;
+            case O_CIRC_CAPS: send_uc_hex(0x00D4); return false;
+            case OE_CAPS:     send_uc_hex(0x0152); return false;
+            case A_GRAV_CAPS: send_uc_hex(0x00C0); return false;
+            case E_ACUT:      send_uc_hex(0x00C9); return false;
+            case E_GRAV:      send_uc_hex(0x00C8); return false;
+            case E_CIRC_CAPS: send_uc_hex(0x00CA); return false;
+            case AE_CAPS:     send_uc_hex(0x00C6); return false;
+            case I_CIRC_CAPS: send_uc_hex(0x00CE); return false;
+            case I_DIER_CAPS: send_uc_hex(0x00CF); return false;
+        }
+    }
+    return true;
+}
